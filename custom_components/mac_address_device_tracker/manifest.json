@@ -1,13 +1,13 @@
 {
-  "domain": "macdetect",
+  "domain": "mac_address_device_tracker",
   "name": "MAC Address Device Tracker",
-  "codeowners": ["@mudape"],
+  "codeowners": ["@Timandes"],
   "config_flow": false,
   "dependencies": [],
-  "documentation": "https://github.com/mudape/iphonedetect",
+  "documentation": "https://github.com/Timandes/mac-address-device-tracker",
   "integration_type": "device",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/mudape/iphonedetect/issues",
+  "issue_tracker": "https://github.com/Timandes/mac-address-device-tracker/issues",
   "requirements": [],
-  "version": "1.4.1"
+  "version": "0.0.1"
 }
