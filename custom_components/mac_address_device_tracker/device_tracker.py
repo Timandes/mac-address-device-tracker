@@ -12,6 +12,8 @@ import logging
 import socket
 import subprocess
 
+from datetime import datetime, timedelta
+
 import homeassistant.helpers.config_validation as cv
 import homeassistant.util.dt as dt_util
 import voluptuous as vol
@@ -48,6 +50,8 @@ REACHABLE_DEVICE_MAC_ADDRS = []
 class Host:
     """Host object with arp detection."""
 
+    last_seen: datetime | None = None
+
     def __init__(self, dev_id, dev_mac_addr):
         """Initialize the Host."""
         self.dev_id = dev_id
@@ -62,19 +66,24 @@ class Host:
 
     def update_device(self, see, consider_home: timedelta | None = None):
         """Update tracked devices"""
+        location_name = None
         _LOGGER.debug(f"REACHABLE_DEVICE_MAC_ADDRS: {REACHABLE_DEVICE_MAC_ADDRS}")
         if self.dev_mac_addr in REACHABLE_DEVICE_MAC_ADDRS:
             self.last_seen = dt_util.utcnow()
             location_name = STATE_HOME
+        else:
+            if self.stale(dt_util.utcnow(), consider_home):
+                location_name = STATE_NOT_HOME
 
-        if self.stale(dt_util.utcnow(), consider_home):
-            location_name = STATE_NOT_HOME
+        if location_name is not None:
+            _LOGGER.debug(f"Device {self.dev_id} on {self.dev_mac_addr} is {location_name}")
+            see(dev_id = self.dev_id,
+                attributes = {ATTR_MAC: self.dev_mac_addr},
+                location_name = location_name,
+                source_type = SourceType.ROUTER)
+        else:
+            _LOGGER.debug(f"State of device {self.dev_id} on {self.dev_mac_addr} is not changed")
 
-        _LOGGER.debug(f"Device {self.dev_id} on {self.dev_mac_addr} is {location_name}")
-        see(dev_id = self.dev_id,
-            attributes = {ATTR_MAC: self.dev_mac_addr},
-            location_name = location_name,
-            source_type = SourceType.ROUTER)
 
     @staticmethod
     def find_with_ip():
@@ -115,7 +124,7 @@ def setup_scanner(hass: HomeAssistant, config, see, discovery_info=None):
         _LOGGER.fatal("Can't get neighbours from host OS!")
         return
 
-    hosts = [Host(dev_id, dev_mac_addr) for (dev_id, dev_mac_addr) in
+    hosts = [Host(dev_id, dev_mac_addr.lower()) for (dev_id, dev_mac_addr) in
              config[CONF_HOSTS].items()]
     interval = config.get(CONF_SCAN_INTERVAL, SCAN_INTERVAL)
     consider_home = config.get(CONF_CONSIDER_HOME, DEFAULT_CONSIDER_HOME)
