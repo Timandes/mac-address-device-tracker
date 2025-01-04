@@ -114,13 +114,16 @@ class Host:
 def setup_scanner(hass: HomeAssistant, config, see, discovery_info=None):
     """Set up the Host objects and return the update function."""
 
+    cmd_ip_available = False
+    cmd_arp_available = False
     if subprocess.run("which ip", shell=True, stdout=subprocess.DEVNULL).returncode == 0:
         _LOGGER.debug("Using 'IP' to find tracked devices")
-        _use_cmd_ip = True
-    elif subprocess.run("which arp", shell=True, stdout=subprocess.DEVNULL).returncode == 0:
+        cmd_ip_available = True
+    if subprocess.run("which arp", shell=True, stdout=subprocess.DEVNULL).returncode == 0:
         _LOGGER.warn("Using 'ARP' to find tracked devices")
-        _use_cmd_ip = False
-    else:
+        cmd_arp_available = True
+
+    if not cmd_ip_available and not cmd_arp_available:
         _LOGGER.fatal("Can't get neighbours from host OS!")
         return
 
@@ -141,11 +144,16 @@ def setup_scanner(hass: HomeAssistant, config, see, discovery_info=None):
                 Host.ping_device(host)
             """
 
+            addrs = []
+            if cmd_ip_available:
+                addrs += Host.find_with_ip()
+                _LOGGER.debug(f"Found {len(addrs)} by command 'ip'")
+            if cmd_arp_available:
+                addrs = Host.find_with_arp()
+                _LOGGER.debug(f"Found {len(addrs)} by command 'arp'")
+
             global REACHABLE_DEVICE_MAC_ADDRS
-            if _use_cmd_ip:
-                REACHABLE_DEVICE_MAC_ADDRS = Host.find_with_ip()
-            else:
-                REACHABLE_DEVICE_MAC_ADDRS = Host.find_with_arp()
+            REACHABLE_DEVICE_MAC_ADDRS = addrs
 
             for host in hosts:
                 Host.update_device(host, see, consider_home)
